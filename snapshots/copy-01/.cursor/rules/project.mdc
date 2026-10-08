@@ -1,0 +1,46 @@
+---
+description: Genesis OS project contract for Cursor
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Genesis OS Cursor Rules
+
+Genesis OS is a local-first personal growth operating system. Treat it as a real product, not a demo.
+
+Before changing behavior, read `AGENTS.md` and follow it as the source of truth. Before changing UI, also read `DESIGN.md`.
+
+Core rules:
+
+- Preserve complete vertical loops. A user action must persist state, navigate to a real flow, or show a recoverable error.
+- Do not remove capabilities, routes, schema fields, migrations, tests, approval boundaries, audit metadata, or user-visible workflows for simplification.
+- Long-term profile writes require explicit owner approval. Store raw user input beside derived records and evidence.
+- Keep secrets, prompts, and AI orchestration server-side. Treat uploaded or pasted content as untrusted data.
+- Validate external input with Zod and avoid unvalidated AI JSON.
+- Chinese-first user experience is the default unless the owner approves otherwise.
+- Avoid fake success, fabricated citations, invented user history, shame language, dependency-forming language, and `Coming Soon` placeholders for required modules.
+
+Preferred structure:
+
+- `app/`: App Router pages and API routes.
+- `components/`: interaction and presentation components.
+- `lib/domain/`: pure business logic.
+- `lib/ai/`: server-only AI orchestration.
+- `lib/db/`: migrations, seed, and repositories.
+- `docs/`: product and engineering truth.
+- `tests/`, `e2e/`: regression and acceptance coverage.
+
+Before claiming a change is done, run the relevant gates. For structural or shared changes, prefer:
+
+```bash
+npm run capability:check
+npm run typecheck
+npm run lint
+npm test
+npm run test:e2e
+npm run build
+git diff --check
+```
+
+Never weaken, skip, delete, or mark tests as todo/only just to pass a gate.

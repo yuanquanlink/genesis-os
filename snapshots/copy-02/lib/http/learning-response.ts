@@ -1,0 +1,66 @@
+import { NextResponse } from "next/server";
+import { ZodError } from "zod";
+import { publicServerError, RequestValidationError } from "@/lib/http/request";
+
+const publicMessages: Record<string, { status: number; message: string }> = {
+  LEARNING_GOAL_NOT_FOUND: { status: 404, message: "学习目标不存在" },
+  READY_RESOURCE_REQUIRED: { status: 409, message: "至少需要一份已成功解析的资料，才能生成基线诊断" },
+  BASELINE_REQUIRED: { status: 409, message: "请先提交基线诊断，再开始每日学习会话" },
+  NO_LEARNING_NODE_READY: { status: 409, message: "当前没有可开始的知识节点；请完成前置节点或等待复习日期" },
+  SESSION_NOT_FOUND: { status: 404, message: "学习会话不存在" },
+  SESSION_STAGE_NOT_FOUND: { status: 409, message: "当前会话没有可回答的阶段" },
+  DIAGNOSTIC_NOT_FOUND: { status: 404, message: "基线诊断不存在" },
+  FILE_REQUIRED: { status: 400, message: "请选择要上传的文件" },
+  REVIEW_NOT_FOUND: { status: 404, message: "复习任务不存在" },
+  REVIEW_NOT_DUE: { status: 409, message: "该复习尚未到期；提前查看不会伪装成延迟测试" },
+  LEARNING_AGENT_PLAN_REQUIRED: { status: 409, message: "请先生成 Learning Agent 能力诊断与课程" },
+  PROJECT_CHALLENGE_NOT_FOUND: { status: 404, message: "工程挑战不存在" },
+  PROJECT_SUBMISSION_NOT_FOUND: { status: 404, message: "项目提交不存在" },
+  PROJECT_VERIFICATION_NOT_FOUND: { status: 404, message: "机器验收记录不存在" },
+  PROJECT_DEFENSE_NOT_FOUND: { status: 404, message: "工程答辩不存在" },
+  PROJECT_SOURCE_NOT_AVAILABLE: { status: 409, message: "远程仓库只保存了地址；请提交 ZIP 或白名单内的本地项目后再执行" },
+  PROJECT_VERIFICATION_REQUIRED: { status: 409, message: "请先通过至少 PARTIAL 的机器验收，再进入答辩" },
+  PROJECT_DEFENSE_ANSWER_MISMATCH: { status: 400, message: "答辩答案与问题不匹配" },
+  PROJECT_ZIP_REQUIRED: { status: 400, message: "请选择 ZIP 项目文件" },
+  PROJECT_ARCHIVE_TOO_LARGE: { status: 413, message: "ZIP 项目超过 20MB 上限" },
+  PROJECT_FILE_COUNT_EXCEEDED: { status: 413, message: "项目文件数量超过 1000 个" },
+  PROJECT_TOTAL_SIZE_EXCEEDED: { status: 413, message: "项目解压后超过 50MB 上限" },
+  PROJECT_ARCHIVE_UNSAFE_PATH: { status: 400, message: "ZIP 包含不安全路径" },
+  PROJECT_PATH_NOT_ALLOWED: { status: 403, message: "本地项目路径不在服务端显式允许目录中" },
+  PROJECT_PATH_NOT_DIRECTORY: { status: 400, message: "本地项目路径不是目录" },
+  PROJECT_SYMLINK_REJECTED: { status: 400, message: "项目包含符号链接，已拒绝导入" },
+  COGNITION_ITEM_NOT_FOUND: { status: 404, message: "Cognition item not found" },
+  COGNITION_GENERATE_ACTION_REQUIRED: { status: 400, message: "Generate action required" },
+  COGNITION_REFLECT_ACTION_REQUIRED: { status: 400, message: "Reflect action required" },
+  COGNITION_UNKNOWN_SOURCE: { status: 422, message: "Cognition referenced an untrusted source" },
+  COGNITION_UNVERIFIED_EXTERNAL_SOURCE: { status: 422, message: "External source could not be verified" },
+  COGNITION_MODULE_MISMATCH: { status: 422, message: "Cognition module mismatch" },
+  STRATEGY_NOT_FOUND: { status: 404, message: "Strategy not found" },
+  STRATEGY_CANDIDATE_NOT_FOUND: { status: 404, message: "Strategy candidate not found" },
+  STRATEGY_CANDIDATE_ALREADY_DECIDED: { status: 409, message: "Strategy candidate has already been decided" },
+  STRATEGY_CANDIDATE_NOT_PENDING: { status: 409, message: "Strategy candidate is not pending" },
+  STRATEGY_CANDIDATE_INVALID: { status: 422, message: "Strategy candidate data is invalid" },
+  STRATEGY_APPROVAL_REQUIRED: { status: 409, message: "Formal strategies require an approved candidate" },
+  MEMORY_CANDIDATE_NOT_FOUND: { status: 404, message: "Memory candidate not found" },
+  MEMORY_CANDIDATE_NOT_PENDING: { status: 409, message: "Memory candidate is not pending" },
+  MEMORY_INVALID_SOURCE: { status: 422, message: "Memory candidate referenced an unknown raw knowledge record" },
+  MISSION_CANDIDATE_NOT_FOUND: { status: 404, message: "Mission candidate not found" },
+  MISSION_CANDIDATE_NOT_PENDING: { status: 409, message: "Mission candidate is not pending" },
+  MISSION_NOT_FOUND: { status: 404, message: "Mission not found" },
+  MISSION_NOT_ACTIVE: { status: 409, message: "Mission is not active" },
+  MISSION_APPROVAL_REQUIRED: { status: 409, message: "Active missions require an approved Mission Candidate" },
+  MISSION_INVALID_REFERENCE: { status: 422, message: "Mission candidate referenced data outside the approved strategy" },
+  DAILY_PLAN_CANDIDATE_NOT_FOUND: { status: 404, message: "Daily Plan Candidate not found" },
+  DAILY_PLAN_CANDIDATE_NOT_PENDING: { status: 409, message: "Daily Plan Candidate is not pending" },
+  DAILY_PLAN_APPROVAL_REQUIRED: { status: 409, message: "Active Daily Plans require an approved candidate" },
+  OPERATING_INVALID_REFERENCE: { status: 422, message: "Personal Operating output referenced unavailable context" },
+  OPERATING_REFLECTION_EVIDENCE_NOT_CREATED: { status: 500, message: "Reflection was saved but its Evidence record could not be created" },
+};
+
+export function learningErrorResponse(scope: string, error: unknown) {
+  if (error instanceof ZodError) return NextResponse.json({ error: "输入校验失败", issues: error.issues }, { status: 400 });
+  if (error instanceof RequestValidationError) return NextResponse.json({ error: error.publicMessage }, { status: error.status });
+  const known = error instanceof Error ? publicMessages[error.message.split(":")[0]] : undefined;
+  if (known) return NextResponse.json({ error: known.message }, { status: known.status });
+  return NextResponse.json(publicServerError(scope, error), { status: 500 });
+}
